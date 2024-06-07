@@ -1,20 +1,40 @@
-import { AppDataSource } from "./data-source"
-import { User } from "./entity/User"
+import * as express from "express";
+import * as bodyParser from "body-parser";
+import { Request, Response } from "express";
+import { AppDataSource } from "./data-source";
+//@ts-ignore
+import * as cors from "cors";
+import { apiLimiter, corsOptions, logRequest } from "./helper/Helpers";
+import { routes } from "./index.routes";
+require("dotenv").config();
 
-AppDataSource.initialize().then(async () => {
+// create express app
+const app = express();
 
-    console.log("Inserting a new user into the database...")
-    const user = new User()
-    user.firstName = "Timber"
-    user.lastName = "Saw"
-    user.age = 25
-    await AppDataSource.manager.save(user)
-    console.log("Saved a new user with id: " + user.id)
+//debuggRoutes(routes);
+app.use(apiLimiter);
+app.use(logRequest);
 
-    console.log("Loading users from the database...")
-    const users = await AppDataSource.manager.find(User)
-    console.log("Loaded users: ", users)
+app.use(cors(corsOptions));
+app.use(bodyParser.json());
 
-    console.log("Here you can setup and run express / fastify / any other framework.")
+// register express routes from defined application routes
 
-}).catch(error => console.log(error))
+routes.forEach((route) => {
+  route.route = "/api" + route.route;
+  const method = (req: Request, res: Response, next: Function) => {
+    const controller = new (route.controller as any)();
+    controller[route.action](req, res, next);
+  };
+  if (route.middleware) {
+    (app as any)[route.method](route.route, route.middleware, method);
+  } else {
+    (app as any)[route.method](route.route, method);
+  }
+});
+AppDataSource.initialize().catch((error) => console.log(error));
+app.listen(process.env.PORT, () => {
+  console.log(`Server started at port ${process.env.PORT}`);
+});
+
+export { app };
