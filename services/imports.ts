@@ -11,8 +11,10 @@ import {
   validateEmailAndVerficationEmail,
 } from "../services/UserSrvices";
 const jwt_rounds = parseInt(process.env.JWT_ROUNDS);
+const secret = process.env.JWT_SECRET;
+const expiresIn = process.env.JWT_EXPIRATION_TIME;
 export {
-  User,
+  //User,
   Request,
   Response,
   ObjectId,
@@ -23,4 +25,6 @@ export {
   createUser,
   validateEmailAndVerficationEmail,
   omit,
+  secret,
+  expiresIn,
 };

@@ -2,12 +2,15 @@ import {
   AppDataSource,
   Request,
   Response,
-  User,
   bcrypt,
   createUser,
   omit,
   validateEmailAndVerficationEmail,
+  // jwt,
+  // secret,
+  expiresIn,
 } from "../../../services/imports";
+
 import {
   createResponse,
   escapeAttributes,
@@ -15,7 +18,8 @@ import {
   validateAttributes,
   validateEmail,
 } from "../../helper/Helpers";
-
+import { User } from "../../entity/User";
+var jwt = require("jsonwebtoken");
 export class AuthController {
   private userRepository = AppDataSource.getMongoRepository(User);
   async register(request: Request, response: Response) {
@@ -41,7 +45,7 @@ export class AuthController {
       let user: User;
       user = await createUser(escapedData);
       const res = await validateEmailAndVerficationEmail(user);
-      console.log("🚀 ~ AuthController ~ register ~ res:", res);
+      console.log("🚀 ~ AuthController ~ register 1 ~ res:", res);
 
       if (res) {
         return createResponse(response, 200, res);
@@ -60,116 +64,116 @@ export class AuthController {
       }
     }
   }
+  // async register(request: Request, response: Response) {
+  //   try {
+  //     const attributes = [
+  //       "firstName",
+  //       "lastName",
+  //       "email",
+  //       "phoneNumber",
+  //       "password",
+  //     ];
+
+  //     const requiredAttributes = ["firstName", "lastName", "email", "password"];
+  //     // Valider si tous les attributs requis sont présents dans le corps de la requête
+  //     const validation = validateAttributes(request.body, requiredAttributes);
+  //     if (validation !== null) {
+  //       // Si un attribut est manquant, retourner une réponse d'erreur 400
+  //       return createResponse(response, 400, validation);
+  //     }
+
+  //     // Échapper tous les attributs pour prévenir les attaques XSS
+  //     const escapedData = escapeAttributes(request.body, attributes);
+
+  //     // Hacher le mot de passe avant de créer l'utilisateur
+  //     const hashedPassword = await bcrypt.hash(escapedData.password, 10);
+  //     escapedData.password = hashedPassword;
+
+  //     let user: User;
+  //     user = await createUser(escapedData);
+  //     const res = await validateEmailAndVerficationEmail(user);
+  //     console.log("🚀 ~ AuthController ~ register ~ res:", res);
+
+  //     if (res) {
+  //       return createResponse(response, 200, res);
+  //     }
+  //     return createResponse(response, 500, "Échec de l'inscription");
+  //   } catch (err) {
+  //     console.log("🚀 ~ AuthController ~ register ~ err:", err);
+  //     console.error(err.message);
+  //     if (err.name == "InvalidInputError") {
+  //       return createResponse(response, 400, err.message);
+  //     } else if (err.name == "SmtpError") {
+  //       return createResponse(response, 400, err.message);
+  //     } else {
+  //       return createResponse(response, 500, "Erreur serveur");
+  //     }
+  //   }
+  // }
+
   async authenticateUser(
     attributeName: string,
     attributeValue: string,
-    password: string,
-    response: Response,
+    password?: string,
+    response?: Response,
     pushToken?: string
   ) {
-    // Define attributes that are required for user authentication
-    const attributes = [attributeName, "password"];
+    try {
+      const secret = process.env.JWT_SECRET;
+      const attributes = [attributeName, "password"];
+      const expiresIn = process.env.JWT_EXPIRATION_TIME;
+      const escapedData = escapeAttributes(
+        { [attributeName]: attributeValue, password },
+        attributes
+      );
 
-    // Escape all attributes to prevent XSS attacks
-    const escapedData = escapeAttributes(
-      { [attributeName]: attributeValue, password },
-      attributes
-    );
+      const whereClause = { [attributeName]: escapedData[attributeName] };
+      const user = await this.userRepository.findOne({ where: whereClause });
+      // console.log("🚀 ~ AuthController ~ user:", user);
 
-    // Check if a user with the provided attribute value exists in the database
-    const whereClause = { [attributeName]: escapedData[attributeName] };
-    const user = await this.userRepository.findOne({ where: whereClause });
-    console.log("🚀 ~ AuthController ~ user:", user);
-
-    if (!user) {
-      // If no user exists with the provided attribute value, return a 400 error response
-      return createResponse(response, 401, " line 86 Invalid credentials");
-    }
-
-    // Check if the provided password matches the hashed password stored in the database
-
-    const passwordMatches = await bcrypt.compare(
-      escapedData.password,
-      user.password
-    );
-    console.log("🚀 ~ AuthController ~ passwordMatches:", passwordMatches);
-    console.log(
-      "🚀 ~ AuthController ~ escapedData.password:",
-      escapedData.password
-    );
-    console.log("🚀 ~ AuthController ~ user.password:", user.password);
-    if (!passwordMatches) {
-      // If the password is incorrect, return a 400 error response
-      return createResponse(response, 401, " line 98 Invalid credentials");
-    }
-
-    // if (user.verified == false) {
-    //   // check if there is a verification code with the user id
-    //   const registryCodeRepository =
-    //     AppDataSource.getMongoRepository(RegistryCode);
-    //   const registryCode = await registryCodeRepository.findOne({
-    //     where: { userId: user.id.toString() },
-    //   });
-    //   if (registryCode) {
-    //     registryCodeRepository.delete({ userId: user.id.toString() });
-    //   }
-    //   validateEmailAndSendVerficationEmail(user);
-    //   const resData = {
-    //     user: omit(user, omitAttributes),
-    //     message: "User not verified",
-    //     isCodeExpired: !Boolean(registryCode),
-    //   };
-    //   return createResponse(response, 206, resData);
-    // }
-    let token: string;
-    // let company: Company;
-    // if (ObjectID.isValid(companyId)) {
-    //   const companyRepo = AppDataSource.getMongoRepository(Company);
-    //   company = await companyRepo.findOne(new ObjectID(companyId));
-    // }
-    // if (company) {
-    //   // Create a JWT token for the authenticated user
-    //   token = jwt.sign({ id: user.id, companyId: company.id }, secret, {
-    //     expiresIn,
-    //   });
-    // } else {
-    //   token = jwt.sign({ id: user.id }, secret, { expiresIn });
-    // }
-
-    if (pushToken) {
-      // save pushToken to user pushTokens array
-      const pushTokens = user.pushTokens ?? [];
-      if (!pushTokens.includes(pushToken)) {
-        pushTokens.push(pushToken);
-        await this.userRepository.update({ id: user.id }, { pushTokens });
+      if (!user) {
+        // If no user exists with the provided attribute value, return a 400 error response
+        return createResponse(response, 401, " line 86 Invalid credentials");
       }
+      // Check if the provided password matches the hashed password stored in the database
+      const passwordMatches = await bcrypt.compare(
+        escapedData.password,
+        user.password
+      );
+      // console.log("🚀 ~ AuthController ~ passwordMatches:", passwordMatches);
+      // console.log("🚀 ~ AuthController ~ jwt:", jwt);
+      // console.log("🚀 ~ secret:", secret);
+      // console.log("🚀 ~ expiresIn:", expiresIn);
+      // console.log(
+      //   "🚀 ~ AuthController ~ escapedData.password:",
+      //   escapedData.password
+      // );
+      // console.log("🚀 ~ AuthController ~ user.password:", user.password);
+      if (!passwordMatches) {
+        // If the password is incorrect, return a 400 error response
+        return createResponse(response, 401, " line 98 Invalid credentials");
+      }
+
+      let token: string;
+      token = jwt.sign({ id: user.id }, secret, { expiresIn });
+
+      if (pushToken) {
+        // save pushToken to user pushTokens array
+        const pushTokens = user.pushTokens ?? [];
+        if (!pushTokens.includes(pushToken)) {
+          pushTokens.push(pushToken);
+          await this.userRepository.update({ id: user.id }, { pushTokens });
+        }
+      }
+      const resData = {
+        user: omit(user, omitAttributes),
+        token: token,
+      };
+      const jsonResponse = createResponse(response, 200, resData);
+      return jsonResponse;
+    } catch (error) {
+      console.log("🚀 ~ AuthController ~ error:", error);
     }
-
-    // const resCompanies: Partial<Company>[] = [];
-    // if (user.companiesId) {
-    //   for (let index = 0; index < user.companiesId.length; index++) {
-    //     const compId = user.companiesId[index];
-    //     const companyRepo = AppDataSource.getMongoRepository(Company);
-    //     const _company = await companyRepo.findOne(new ObjectID(compId));
-    //     if (_company) {
-    //       resCompanies.push({
-    //         id: _company.id,
-    //         name: _company.name,
-    //       });
-    //     }
-    //   }
-    // }
-
-    // user.companiesId = undefined;
-    // //@ts-ignore
-    // user.companies = resCompanies;
-    // // Return a success response along with the user object (excluding password) and the JWT token
-    const resData = {
-      user: omit(user, omitAttributes),
-      token: token,
-    };
-    const jsonResponse = createResponse(response, 200, resData);
-    return jsonResponse;
   }
 
   //LOGIN
@@ -184,10 +188,10 @@ export class AuthController {
         );
       }
       const attributeName = request.body.email ? "email" : "phoneNumber";
-      console.log(
-        "🚀 ~ AuthController ~ login ~ attributeName:",
-        typeof attributeName
-      );
+      // console.log(
+      //   "🚀 ~ AuthController ~ login ~ attributeName:",
+      //   typeof attributeName
+      // );
       // Validate if all required attributes are present in the request body
       const validation = validateAttributes(request.body, [
         attributeName,
@@ -203,7 +207,6 @@ export class AuthController {
         "email",
         "password",
         "pushToken",
-        "companyId",
       ]);
 
       if (escapedData.phoneNumber) {
