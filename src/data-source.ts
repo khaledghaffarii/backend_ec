@@ -1,15 +1,18 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { User } from "./entity/User";
+import { Client } from "./entity/Clients";
+import { Permission } from "./entity/Permission";
 
 export const AppDataSource = new DataSource({
   type: "mongodb",
   database: "ecommerce",
-  url: "mongodb+srv://ghaffari:abcd123456@cluster0.ofgjfti.mongodb.net/",
-  synchronize: true,
+  url: "mongodb+srv://ghaffari:abcd123456@cluster0.ofgjfti.mongodb.net/ecommerce?retryWrites=true&w=majority&tls=true",
   useUnifiedTopology: true,
   logging: false,
-  entities: [User],
+  entities: [User, Client, Permission],
   migrations: [],
   subscribers: [],
+  ssl: true,
+  sslValidate: true,
 });

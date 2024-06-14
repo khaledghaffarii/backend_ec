@@ -44,6 +44,12 @@ export class InvalidInputError extends Error {
     this.name = "InvalidInputError";
   }
 }
+export class AuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthError";
+  }
+}
 export function createResponse(res: Response, status: number, data: any): any {
   if (status >= 200 && status < 300) {
     return res.status(status).json(data);
