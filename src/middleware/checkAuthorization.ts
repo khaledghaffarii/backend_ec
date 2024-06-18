@@ -17,14 +17,10 @@ export const getDecodedAuthTokenFromHeaderOrFail = async (
     if (token) {
       token = token as string;
       // Verify token : this will throw an error if the token is invalid or expired
-
       const decodedToken: any = jwt.verify(token, process.env.JWT_SECRET);
-
       const userId: any = decodedToken.id;
-
       // find user
       const userRepo = AppDataSource.getMongoRepository(User);
-
       //@ts-ignore
       const user = await userRepo.findOne(new ObjectId(userId));
 
@@ -37,7 +33,6 @@ export const getDecodedAuthTokenFromHeaderOrFail = async (
     throw new AuthError("Authorization failed");
   } catch (error) {
     console.log("🚀firstcheck: ~ error:", error);
-
     if (error.name == "AuthError") {
       throw new AuthError(error.message);
     } else {
